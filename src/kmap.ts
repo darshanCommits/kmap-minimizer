@@ -1,30 +1,27 @@
 import { chunk } from "../lib/myStdLib";
 
-type TruthTable = Record<string, Binary>;
 type Binary = 0 | 1;
+type TruthTable = Record<string, Binary>;
+// Truth Table is actually TruthTable[], this is singular entry represented by A:1, B:0, etc.
 
-// if(1) var = [2,1] => 2bit
-// if(2) var = [2,2] => 4bit
-// if(3) var = [2,4] => 8bit
-// if(4) var = [4,4] => 16bit
-
-function getKmapDimension(numVars: number): [number, number] {
-	const rows = Math.pow(2, Math.ceil(numVars / 2));
-	const cols = Math.pow(2, Math.floor(numVars / 2));
-
-	return [rows, cols];
-}
 class KMap {
 	private values: Binary[];
 	private cols: number;
 	private rows: number;
+	private vars: number;
 
 	constructor(vars: number) {
 		if (vars > 4 || vars < 1)
 			throw new Error("Expected number of variables b/w 1 & 4");
 
+		const getKmapDimension = (numVars: number): [number, number] => [
+			2 ** Math.floor(numVars / 2), // rows
+			2 ** Math.ceil(numVars / 2), // cols
+		];
+
 		[this.rows, this.cols] = getKmapDimension(vars);
 
+		this.vars = vars;
 		this.values = Array.from({ length: this.rows * this.cols }, () => 0);
 	}
 
@@ -46,19 +43,6 @@ class KMap {
 		return chunk(this.values, this.cols);
 	}
 
-	convertToGrayCode(): this {
-		const matrix: Binary[][] = this.toMatrix();
-		const grayCode: Binary[][] = matrix.map((x: Binary[]): Binary[] =>
-			x.map(
-				(value: Binary, index: number): Binary =>
-					index === 1 ? ((value ^ x[index - 1]) as Binary) : value,
-			),
-		);
-
-		this.values = grayCode.flat();
-		return this;
-	}
-
 	logToConsole(): void {
 		const matrix = this.toMatrix();
 		for (const row of matrix) console.log(`${row.join(" ")}`);
@@ -72,8 +56,8 @@ class KMap {
 		return matrix;
 	}
 
-	// WIP
-	generateTT(vars: number): TruthTable[] {
+	generateTT(): TruthTable[] {
+		const vars = this.vars;
 		const truthTable: TruthTable[] = [];
 
 		for (let i = 0; i < 2 ** vars; i++) {
@@ -87,25 +71,54 @@ class KMap {
 
 		return truthTable;
 	}
+
+	convertToGrayCode(
+		truthTable: TruthTable[] = this.generateTT(),
+	): TruthTable[] {
+		// using this default parameter approach to avoid recreating the TT if it has been created once.
+
+		if (truthTable.length !== this.values.length)
+			throw new Error("Truth Table doesn't match the K-Map length.");
+		const grayCode: TruthTable[] = [];
+
+		for (const entry of truthTable) {
+			const grayCodeEntry: TruthTable = {};
+
+			for (let i = 0; i < this.vars; i++) {
+				const variableName = String.fromCharCode(65 + i);
+				const prevValue = entry[String.fromCharCode(65 + i - 1)];
+				const currentValue = entry[variableName];
+
+				grayCodeEntry[variableName] = (currentValue ^ prevValue) as Binary;
+			}
+			grayCode.push(grayCodeEntry);
+		}
+
+		return grayCode;
+	}
+
+	// this function to represent it
+	prettyPrintGray(grayCode: TruthTable[]) {
+		let output = "";
+
+		grayCode.map((x) => {
+			for (const values in x) {
+				output += `${x[values]} `;
+			}
+			output += "\n";
+		});
+		return output;
+	}
 }
 
-/** DS that might work for TT?? */
-// const TTValue = [
-// 	{ A: 0, B: 0, C: 0 },
-// 	{ A: 0, B: 0, C: 1 },
-// 	{ A: 0, B: 1, C: 0 },
-// 	{ A: 0, B: 1, C: 1 },
-// 	{ A: 1, B: 0, C: 0 },
-// 	{ A: 1, B: 0, C: 1 },
-// 	{ A: 1, B: 1, C: 0 },
-// 	{ A: 1, B: 1, C: 1 },
-// ];
-
-const kmap = new KMap(4);
+const kmap = new KMap(3);
 kmap.mapValues([2, 7, 8, 15]); // kmap.logToConsole();
-kmap.logToConsole();
-kmap.convertToGrayCode();
-console.log();
-kmap.logToConsole();
+// kmap.logToConsole();
+const tt = kmap.generateTT();
+const gray = kmap.convertToGrayCode();
+const pretty = kmap.prettyPrintGray(tt);
+console.log("A B C");
+console.log(pretty);
+// kmap.logToConsole();
 
 // console.table(kmap.generateTT(3));
